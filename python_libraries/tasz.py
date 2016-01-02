@@ -1,3 +1,5 @@
+#cosmological conversions 
+
 import numpy as np
 
 def tasz(omeganot, littleh, interval=1000):

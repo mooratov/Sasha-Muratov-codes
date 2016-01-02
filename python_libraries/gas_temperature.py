@@ -1,4 +1,4 @@
-#Phil's routine!!!
+#Phil's routine!!! for calculating gas temeprature
 
 import numpy as np
 

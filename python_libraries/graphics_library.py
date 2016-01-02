@@ -1,3 +1,5 @@
+#functions for graphics
+
 import matplotlib
 matplotlib.use('Agg')
 from gas_temperature import *

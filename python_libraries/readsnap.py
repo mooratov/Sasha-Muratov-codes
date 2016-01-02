@@ -1,4 +1,4 @@
-#This is Phil's routine with a slight modification to get more info from the header whenever snapshot is read. 
+#This is Phil's (Hopkins) routine with a slight modification to get more info from the header whenever snapshot is read. 
 
 import numpy as np
 import h5py as h5py

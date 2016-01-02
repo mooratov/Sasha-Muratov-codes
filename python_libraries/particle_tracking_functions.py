@@ -1,3 +1,5 @@
+#functions designed to be used in particle tracking 
+
 import os.path
 import numpy as np
 from readsnap import readsnap
