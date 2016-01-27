@@ -80,9 +80,9 @@ Gas_oxygen = G['z'][:,4]
 Stellar_oxygen = S['z'][:,4]
 Total_metal_mass =  (np.sum(Stellar_met*S['m']) + np.sum(Metallicity*G['m']))
 
-OxyYield = (np.sum(Stellar_oxygen*S['m']) + np.sum(Gas_oxygen*G['m'])) / Total_metal_mass
+OxyYield = (np.sum(Stellar_oxygen*S['m']) + np.sum(Gas_oxygen*G['m'])) / np.sum(S['m'])
 
-EmpiricalYield = Total_metal_mass / ((np.sum(S['m']) + np.sum(G['m'])))
+EmpiricalYield = Total_metal_mass / np.sum(S['m'])
 
 a = G['header'][2]
 redshift = G['header'][3]
