@@ -18,20 +18,21 @@ pc = 3.08567758e18
 kpc = pc * 1e3
 
 halo_to_do = 0
-multifile = False
-use_fixed_halos = 4
+multifile = True
+use_fixed_halos = 0
 readDM = False
+use_empirical_yield = True
 
-InnerDivide = 0.2 #In units of Rvir
+InnerDivide = 0.1 #In units of Rvir
 UsePhysicalDivide = False
-PhysicalDivide = 10.0 #in units of physical kpc
 PhysicalDivideISM = 10.0  #in units of physical kpc
 
 ColdTempBound = 10**4.0
 LowIonUpperBound = 10**4.7
 OVIUpperBound = 10**5.3
 
-
+use_OuterBoundary = False 
+OuterBoundary_comoving = 100 
 
 if (len(sys.argv) < 2):
 	print 'syntax: blah.py Nsnapshot'
@@ -77,8 +78,11 @@ Metallicity = G['z'][:,0]  #Phil says that the "total metallicity" is more accur
 Stellar_met = S['z'][:,0]
 Gas_oxygen = G['z'][:,4]
 Stellar_oxygen = S['z'][:,4]
+Total_metal_mass =  (np.sum(Stellar_met*S['m']) + np.sum(Metallicity*G['m']))
 
-OxyYield = (np.sum(Stellar_oxygen*S['m']) + np.sum(Gas_oxygen*G['m'])) / (np.sum(Stellar_met*S['m']) + np.sum(Metallicity*G['m']))
+OxyYield = (np.sum(Stellar_oxygen*S['m']) + np.sum(Gas_oxygen*G['m'])) / Total_metal_mass
+
+EmpiricalYield = Total_metal_mass / ((np.sum(S['m']) + np.sum(G['m'])))
 
 a = G['header'][2]
 redshift = G['header'][3]
@@ -110,8 +114,10 @@ Mgas = halostats[12]
 Vmax = halostats[9]
 
 
-Rvir, Vsig, M = SF.check_Rvir_growth(haloN, a, Rvir, Vsig, M, therod=use_fixed_halos)
+Rvir, Vsig, M = SF.check_Rvir_growth(halo_to_do, a, Rvir, Vsig, M, therod=use_fixed_halos)
 
+if (use_OuterBoundary):
+	Rvir = OuterBoundary_comoving
 
 #setting the locations of each spherical shell, as a fraction of Rvir
 R_bin_array_min = np.array([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
@@ -148,28 +154,30 @@ OxyMassO6 = []
 OxyMassLowIon = []
 OxyMassCold = []
 
+
+#divide things up in bins - this step is done even when divide between ISM and CGM is physical... it's useful to have it this way so that we can do full profile of where hot gas is. 
 while (bincount < R_bins):
 	BinCuts = ShellCuts[bincount]
 	aMetalMassHot = np.sum(G['m'][Gclose][Ghalo][BinCuts * TempCutHot] * Metallicity[Gclose][Ghalo][BinCuts * TempCutHot]) * 1e10 / h
 	aMetalMassO6 = np.sum(G['m'][Gclose][Ghalo][BinCuts * TempCutO6] * Metallicity[Gclose][Ghalo][BinCuts * TempCutO6]) * 1e10 / h
 	aMetalMassLowIon = np.sum(G['m'][Gclose][Ghalo][BinCuts * TempCutLowIon] * Metallicity[Gclose][Ghalo][BinCuts * TempCutLowIon]) * 1e10 / h
-	aMetalMassLowCold = np.sum(G['m'][Gclose][Ghalo][BinCuts * TempCutCold] * Metallicity[Gclose][Ghalo][BinCuts * TempCutCold]) * 1e10 / h
+	aMetalMassCold = np.sum(G['m'][Gclose][Ghalo][BinCuts * TempCutCold] * Metallicity[Gclose][Ghalo][BinCuts * TempCutCold]) * 1e10 / h
 
 	aOxyMassHot = np.sum(G['m'][Gclose][Ghalo][BinCuts * TempCutHot] * Gas_oxygen[Gclose][Ghalo][BinCuts * TempCutHot]) * 1e10 / h
 	aOxyMassO6 = np.sum(G['m'][Gclose][Ghalo][BinCuts * TempCutO6] * Gas_oxygen[Gclose][Ghalo][BinCuts * TempCutO6]) * 1e10 / h
 	aOxyMassLowIon = np.sum(G['m'][Gclose][Ghalo][BinCuts * TempCutLowIon] * Gas_oxygen[Gclose][Ghalo][BinCuts * TempCutLowIon]) * 1e10 / h
-	aOxyMassLowCold = np.sum(G['m'][Gclose][Ghalo][BinCuts * TempCutCold] * Gas_oxygen[Gclose][Ghalo][BinCuts * TempCutCold]) * 1e10 / h
+	aOxyMassCold = np.sum(G['m'][Gclose][Ghalo][BinCuts * TempCutCold] * Gas_oxygen[Gclose][Ghalo][BinCuts * TempCutCold]) * 1e10 / h
 
 
 	MetalMassHot.append(aMetalMassHot)
 	MetalMassO6.append(aMetalMassO6)
 	MetalMassLowIon.append(aMetalMassLowIon)
-	MetalMassCold.append(aMetalMassLowCold)
+	MetalMassCold.append(aMetalMassCold)
 
 	OxyMassHot.append(aOxyMassHot)
 	OxyMassO6.append(aOxyMassO6)
 	OxyMassLowIon.append(aOxyMassLowIon)
-	OxyMassCold.append(aOxyMassLowCold)
+	OxyMassCold.append(aOxyMassCold)
 
 	bincount+=1
 
@@ -187,10 +195,10 @@ S_ShellClose =  S_ShellCuts[0] + S_ShellCuts[1]
 Gvclose = ShellCuts[0]
 
 if (UsePhysicalDivide):
-	Gvclose = dists[Ghalo]*a/h < PhysicalDivideISM
+	Gvclose = Gdists[Ghalo]*a/h < PhysicalDivideISM
 	Gfar = np.invert(Gvclose)
 else:
-	Gvclose = 
+	Gvclose =  ShellCuts[0]
 
 MetalMassExpected = np.sum(S['m'][Sclose][Shalo][S_ShellClose])
 
@@ -199,9 +207,18 @@ S_ShellFar = np.invert(S_ShellClose)
 MetalMassExpectedOuter = np.sum(S['m'][Sclose][Shalo][S_ShellFar])
 
 theyield = 0.02
+if (use_empirical_yield):
+	theyield = EmpiricalYield 
 boost_for_oldstars = 1.3
-MetalMassExpected *= 1e10 * theyield * boost_for_oldstars / h
-MetalMassExpectedOuter *= 1e10 * theyield * boost_for_oldstars / h
+
+#when using emperical, aging is already kind of accounted for.. 
+if (use_empirical_yield):
+	MetalMassExpected *= 1e10 * theyield / h
+	MetalMassExpectedOuter *= 1e10 * theyield / h
+else:
+	MetalMassExpected *= 1e10 * theyield * boost_for_oldstars / h
+	MetalMassExpectedOuter *= 1e10 * theyield * boost_for_oldstars / h
+
 
 
 MetalMassStars = np.sum(S['m'][Sclose][Shalo][S_ShellClose] * Stellar_met[Sclose][Shalo][S_ShellClose]) 
@@ -213,24 +230,54 @@ OxyMassStars = np.sum(S['m'][Sclose][Shalo][S_ShellClose] * Stellar_oxygen[Sclos
 MetalMassStars *=1e10 / h
 MetalMassStarsOuter *=1e10 / h
 
-MetalMassISM = MetalMassHot[0] + MetalMassO6[0] + MetalMassLowIon[0] + MetalMassCold[0]
-OxyMetalMassISM = OxyMassHot[0] + OxyMassO6[0] + OxyMassLowIon[0] + OxyMassCold[0]
+if (UsePhysicalDivide):
+#same as when we were binning but now only separating the particles out
+	MetalPartsHot = (G['m'][Gclose][Ghalo][TempCutHot] * Metallicity[Gclose][Ghalo][TempCutHot]) * 1e10 / h
+	MetalPartsO6 = (G['m'][Gclose][Ghalo][TempCutO6] * Metallicity[Gclose][Ghalo][TempCutO6]) * 1e10 / h
+	MetalPartsLowIon = (G['m'][Gclose][Ghalo][TempCutLowIon] * Metallicity[Gclose][Ghalo][TempCutLowIon]) * 1e10 / h
+	MetalPartsCold = (G['m'][Gclose][Ghalo][TempCutCold] * Metallicity[Gclose][Ghalo][TempCutCold]) * 1e10 / h
+
+	OxyPartsHot = (G['m'][Gclose][Ghalo][TempCutHot] * Gas_oxygen[Gclose][Ghalo][ TempCutHot]) * 1e10 / h
+	OxyPartsO6 = (G['m'][Gclose][Ghalo][ TempCutO6] * Gas_oxygen[Gclose][Ghalo][ TempCutO6]) * 1e10 / h
+	OxyPartsLowIon = (G['m'][Gclose][Ghalo][ TempCutLowIon] * Gas_oxygen[Gclose][Ghalo][ TempCutLowIon]) * 1e10 / h
+	OxyPartsCold = (G['m'][Gclose][Ghalo][ TempCutCold] * Gas_oxygen[Gclose][Ghalo][ TempCutCold]) * 1e10 / h
 
 
+	MetalMassISM = np.sum(MetalPartsHot[Gvclose[TempCutHot]]) + np.sum(MetalPartsO6[Gvclose[TempCutO6]]) + np.sum(MetalPartsLowIon[Gvclose[TempCutLowIon]]) + np.sum(MetalPartsCold[Gvclose[TempCutCold]])
+	OxyMetalMassISM = np.sum(OxyPartsHot[Gvclose[TempCutHot]]) + np.sum(OxyPartsO6[Gvclose[TempCutO6]]) + np.sum(OxyPartsLowIon[Gvclose[TempCutLowIon]]) + np.sum(OxyPartsCold[Gvclose[TempCutCold]])
+	
+	
+	G_not_vclose = np.invert(Gvclose)
+	
+	
+	HaloMassHot = np.sum(MetalPartsHot[G_not_vclose[TempCutHot]])
+	HaloMassO6 = np.sum(MetalPartsO6[G_not_vclose[TempCutO6]])
+	HaloMassLowIon = np.sum(MetalPartsLowIon[G_not_vclose[TempCutLowIon]])
+	HaloMassCold = np.sum(MetalPartsCold[G_not_vclose[TempCutCold]])
+	
+	OxyHaloMassHot = np.sum(OxyPartsHot[G_not_vclose[TempCutHot]])
+	OxyHaloMassO6 = np.sum(OxyPartsO6[G_not_vclose[TempCutO6]])
+	OxyHaloMassLowIon = np.sum(OxyPartsLowIon[G_not_vclose[TempCutLowIon]])
+	OxyHaloMassCold = np.sum(OxyPartsCold[G_not_vclose[TempCutCold]])
+	
+else:
+#when we can just use shells
+	MetalMassISM = MetalMassHot[0] + MetalMassO6[0] + MetalMassLowIon[0] + MetalMassCold[0]
+	OxyMetalMassISM = OxyMassHot[0] + OxyMassO6[0] + OxyMassLowIon[0] + OxyMassCold[0]
 
-HaloMassHot = np.sum(MetalMassHot[1:])
-HaloMassO6 = np.sum(MetalMassO6[1:])
-HaloMassLowIon = np.sum(MetalMassLowIon[1:])
-HaloMassCold = np.sum(MetalMassCold[1:])
+	HaloMassHot = np.sum(MetalMassHot[1:])
+	HaloMassO6 = np.sum(MetalMassO6[1:])
+	HaloMassLowIon = np.sum(MetalMassLowIon[1:])
+	HaloMassCold = np.sum(MetalMassCold[1:])
 
-OxyHaloMassHot = np.sum(OxyMassHot[1:])
-OxyHaloMassO6 = np.sum(OxyMassO6[1:])
-OxyHaloMassLowIon = np.sum(OxyMassLowIon[1:])
-OxyHaloMassCold = np.sum(OxyMassCold[1:])
+	OxyHaloMassHot = np.sum(OxyMassHot[1:])
+	OxyHaloMassO6 = np.sum(OxyMassO6[1:])
+	OxyHaloMassLowIon = np.sum(OxyMassLowIon[1:])
+	OxyHaloMassCold = np.sum(OxyMassCold[1:])
 
 #if (UsePhysicalDivide):
 
-MetalOutLine = [Mstar, MetalMassExpected, MetalMassStars, MetalMassISM, HaloMassHot, HaloMassO6, HaloMassLowIon, HaloMassCold, OxyYield, OxyMassStars, OxyMetalMassISM, OxyHaloMassHot, OxyHaloMassO6, OxyHaloMassLowIon, OxyHaloMassCold]
+MetalOutLine = [Mstar, MetalMassExpected, MetalMassStars, MetalMassISM, HaloMassHot, HaloMassO6, HaloMassLowIon, HaloMassCold, OxyYield, OxyMassStars, OxyMetalMassISM, OxyHaloMassHot, OxyHaloMassO6, OxyHaloMassLowIon, OxyHaloMassCold, theyield]
 
 print 'here is your metals'
 print SF.line_to_string(MetalOutLine, newline='n')
