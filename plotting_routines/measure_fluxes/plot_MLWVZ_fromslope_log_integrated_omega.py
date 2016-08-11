@@ -9,15 +9,24 @@ today = date.today()
 print today
 newtonG = 6.67384e-8
 
+plt.rcParams['ps.fonttype'] = 42 
+plt.rcParams['axes.linewidth'] = 2.0 #set the value globally
+
+
 Time_average_ISM = False
+use_no_loz = True
+use_all_but_weak = True
+show_no_zach = False
+
 
 Inner_label = r'(r=$0.25R_{\rm vir}$)'
 Outer_label = r'(r=$R_{\rm vir}$)'
 
-Inner_label = r'(r=25 kpc)'
-Outer_label = r'(r=50 kpc)'
+#Inner_label = r'(r=25 kpc)'
+#Outer_label = r'(r=50 kpc)'
 
 
+skip_empty_symbols = True
 noWV = True
 little_h = 0.7
 Nptsforanchor = 1
@@ -34,7 +43,6 @@ show_double_fit_vc = True
 show_single_fit_Mh = False
 usemagic = False
 usemed = True
-use_no_loz = True
 use_Lprogs_infit = True
 velocity_mode_95 = True
 plot_inflow = False 
@@ -159,8 +167,10 @@ marker_ar = ['^', '^', '^', '^', '^']
 marker_ar.extend(marker_ar)
 marker_ar.extend(marker_ar)
 marker_ar.extend(marker_ar)
+marker_ar.extend(marker_ar)
 
 color_ar = ['k', 'k', 'k', 'k', 'k']
+color_ar.extend(color_ar)
 color_ar.extend(color_ar)
 color_ar.extend(color_ar)
 color_ar.extend(color_ar)
@@ -200,6 +210,17 @@ for name in finnames:
 		elif 'Lprogs' in name:
 			marker_ar[count] = '_'
 			Ulim_ar.append(True)
+		elif (('m12c' in name) or ('m12d' in name)):
+			marker_ar[count] = 'v'
+			print name, ' is going to a *'
+			if (show_no_zach):
+				marker_ar[count] = 'None'
+
+
+			Ulim_ar.append(False)
+		#elif 'm12q' in name:
+		#	marker_ar[count] = 'x'
+		#	Ulim_ar.append(False)
 		else: 
 			marker_ar[count] = 'v'
 			Ulim_ar.append(False)
@@ -217,8 +238,17 @@ for name in finnames:
 	#z_ends = dars[:,15]
 	
 	zend = dars[:,15]
+	minzend = min(zend)
 	
-	main = (zend <= min(zend))
+	if (('hiz' in name) and minzend >2.01):
+		minzend = 2.01
+	if (('medz' in name) and minzend >0.51):
+		minzend = 0.51
+	if (('loz' in name) and minzend >0.01):
+		minzend = 0.01
+	
+	
+	main = (zend <= minzend)
 	#print zend, (z+1e-8)
 	z_ends = zend
 	fillcut = main
@@ -248,6 +278,7 @@ for name in finnames:
 	if (len(ZG9) != len(vcs)):
 		print 'something be wrong '
 		print name 
+		sys.exit()
 	#print '2nd dars',dars2
 	
 	magicz = dars2[:,1]
@@ -298,6 +329,7 @@ for name in finnames:
 		color_ar[count] = 'b'
 	else:
 		color_ar[count] = 'r'
+		print 'lo redshift check ', name, MLs
 	
 	#countB = 0
 	#while (countB < len(medz)):
@@ -430,9 +462,10 @@ v_ext_ar *= ((1.0+z_rel_ext_ar))**0.5
 
 big_cut = v_ext_ar > v_anchor
 little_cut = v_ext_ar <= v_anchor
-if (use_no_loz):
+if (use_no_loz and (not use_all_but_weak)):
 	big_cut *= (hiz_cut + medz_cut)
 	little_cut  *= (hiz_cut + medz_cut)
+
 
 print 'little guys ',len(v_ext_ar[little_cut])
 print 'big guys ',len(v_ext_ar[big_cut])
@@ -494,6 +527,10 @@ def residualsZ(b , y, x, zz):
     err = y - (b[1]*x + b[0] + b[2]*(1+zz))
     return err
 
+def residualsZZ(b , y, x, zz):
+    err = y - (b[1]*x + b[0] + b[2]*np.log10(1+zz))
+    return err
+
     
 p0 = [-5, 1]
 p0z = [-5, 1, -1]
@@ -504,6 +541,8 @@ p3 = [-1, 1, 1]
 stoopcut = ML_ar_log > -999
 if (use_no_loz):
 	stoopcut  *= (hiz_cut + medz_cut)
+if (use_all_but_weak):
+	stoopcut = ML_ar_log > 0
 
 #with 1+z dependence
 Mstarfit = optimize.leastsq(residualsZ,p3[:], args=(ML_ar_log[stoopcut], Mstar_ar_log[stoopcut], z_rel_ext_ar[stoopcut] ))
@@ -918,9 +957,10 @@ while (count < maxplot):
 		plt.plot(M_ar[count], ML_ar[count], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
 	else:
 		plt.plot(M_ar[count][fillcuts[count]], ML_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(M_ar[count][empcuts[count]], ML_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(M_ar[count][empcuts[count]], ML_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 	if (Ulim_ar[count]):
-		plt.errorbar(M_ar[count], ML_ar[count], yerr=(ML_ar[count]*0.4, ML_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+		plt.errorbar(M_ar[count], ML_ar[count], yerr=(ML_ar[count]*0.4, ML_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 
 		
 	#ERRORBAR EXPERIMENTS
@@ -959,6 +999,9 @@ plt.xlim(5e8, 2e12)
 plt.xscale('log')
 plt.yscale('log')
 
+
+
+
 xlabel_str = ''
 if (usemagic):
 	xlabel_str = r'Halo Mass $(M_{\odot})$ at ${\rm z}_{out,half}$'
@@ -990,6 +1033,15 @@ ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
 
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/12.0, y_range[1]/3.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/12.0, y_range[1]/6.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/12.0, y_range[1]/12.0,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
 plt.savefig('AllML'+str(mi)+'_log_int_'+ str(today) +'z'+str(int(z))+'.pdf')
 #plt.show()
 plt.clf()
@@ -1005,12 +1057,14 @@ while (count < maxplot):
 
 	else:
 		plt.plot(v_ar[count][fillcuts[count]], ML_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(v_ar[count][empcuts[count]], ML_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(v_ar[count][empcuts[count]], ML_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		if (plot_inflow):
 			plt.plot(v_ar[count][fillcuts[count]], MG_ar[count][fillcuts[count]], marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
-			plt.plot(v_ar[count][empcuts[count]], MG_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
+			if (not skip_empty_symbols):
+				plt.plot(v_ar[count][empcuts[count]], MG_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
 	if (Ulim_ar[count]):
-		plt.errorbar(v_ar[count], ML_ar[count], yerr=(ML_ar[count]*0.4, ML_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+		plt.errorbar(v_ar[count], ML_ar[count], yerr=(ML_ar[count]*0.4, ML_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 
 	count+=1
 
@@ -1052,7 +1106,13 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
 
+titlefont = 20
+plt.text(x_range[1]/3.0, y_range[1]/3.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/3.0, y_range[1]/6.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/3.0, y_range[1]/12.0,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
 xlabel_str = ''
 if (usemagic):
 	xlabel_str = r'$V_c$ (km/s) at ${\rm z}_{out,half}$'
@@ -1085,9 +1145,10 @@ while (count < maxplot):
 		plt.plot(Mstar_ar[count], ML_ar[count], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
 	else:
 		plt.plot(Mstar_ar[count][fillcuts[count]], ML_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(Mstar_ar[count][empcuts[count]], ML_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(Mstar_ar[count][empcuts[count]], ML_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 	if (Ulim_ar[count]):
-		plt.errorbar(Mstar_ar[count], ML_ar[count], yerr=(ML_ar[count]*0.4, ML_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+		plt.errorbar(Mstar_ar[count], ML_ar[count], yerr=(ML_ar[count]*0.4, ML_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 
 
 	count+=1
@@ -1131,6 +1192,15 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/192.0, y_range[1]/3.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/192.0, y_range[1]/6.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/192.0, y_range[1]/12.0,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
 plt.savefig('AllMstar'+str(mi)+'_log_int_'+ str(today) +'z'+str(int(z))+'.pdf')
 ff.close()
 
@@ -1144,9 +1214,10 @@ if (not noWV):
 			if (len(v_ar[count][empcuts[count]]) > 0):
 				plt.plot(v_ar[count][fillcuts[count]], veloc_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
 			if (len(v_ar[count][empcuts[count]]) > 0):
-				plt.plot(v_ar[count][empcuts[count]], veloc_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+				if (not skip_empty_symbols):
+					plt.plot(v_ar[count][empcuts[count]], veloc_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		if (Ulim_ar[count]):
-			plt.errorbar(v_ar[count], veloc_ar[count], yerr=(veloc_ar[count]*0.2, veloc_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+			plt.errorbar(v_ar[count], veloc_ar[count], yerr=(veloc_ar[count]*0.4, veloc_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 		count+=1
 	plt.xscale('log')
 	plt.yscale('log')
@@ -1181,6 +1252,14 @@ if (not noWV):
 	ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 	ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 	ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+	
+	x_range = ax.get_xlim()
+	y_range = ax.get_ylim()
+
+	titlefont = 20
+	plt.text(x_range[1]/3.0, y_range[1]/3.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+	plt.text(x_range[1]/3.0, y_range[1]/6.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+	plt.text(x_range[1]/3.0, y_range[1]/12.0,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
 	if (velocity_mode_95):
 		plt.savefig('95_veloc_vc'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 	else:
@@ -1191,7 +1270,7 @@ if (not noWV):
 
 ff.close()
 
-
+plt.clf()
 fig5b =  plt.figure(figsize=(10.5,9))
 count = 0
 while (count < maxplot):
@@ -1201,18 +1280,21 @@ while (count < maxplot):
 			plt.plot(vc_ar[count], ZG9_ar[count], marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
 	else:
 		plt.plot(v_ar[count][fillcuts[count]], outflowmet9_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(v_ar[count][empcuts[count]], outflowmet9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(v_ar[count][empcuts[count]], outflowmet9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		if (plot_inflow):
 			plt.plot(v_ar[count][fillcuts[count]], ZG9_ar[count][fillcuts[count]], marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
-			plt.plot(v_ar[count][empcuts[count]], ZG9_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
+			if (not skip_empty_symbols):
+				plt.plot(v_ar[count][empcuts[count]], ZG9_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
 	if (Ulim_ar[count]):
-		plt.errorbar(v_ar[count], outflowmet9_ar[count], yerr=(outflowmet9_ar[count]*0.2, outflowmet9_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
-		#plt.errorbar(v_ar[count], outflowmet9_ar[count], yerr=(outflowmet9_ar[count]*0.2, outflowmet9_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+		plt.errorbar(v_ar[count], outflowmet9_ar[count], yerr=(outflowmet9_ar[count]*0.4, outflowmet9_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
+		#plt.errorbar(v_ar[count], outflowmet9_ar[count], yerr=(outflowmet9_ar[count]*0.2, outflowmet9_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 	count+=1
 plt.xscale('log')
 plt.yscale('log')
 #plt.xlim(1e1, 3e2)
 #plt.ylim(1e1, 1e3)
+plt.xlim(1e1, 3e2)
 plt.ylim(5e-5, 1e-1)
 xlabel_str = ''
 if (usemagic):
@@ -1244,9 +1326,21 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[0]*1.2, y_range[0]*6.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[0]*1.2, y_range[0]*3.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[0]*1.2, y_range[0]*1.5,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+xfarag = np.linspace(5e0, 3.5e2, num=100)
+yfarag = xfarag*0 + 0.02
+plt.plot(xfarag, yfarag, ls=':', color = 'k', lw=2)
+
 plt.savefig('metal9_vc'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
-
+plt.clf()
 fig5 =  plt.figure(figsize=(10.5,9))
 count = 0
 while (count < maxplot):
@@ -1257,17 +1351,25 @@ while (count < maxplot):
 
 	else:
 		plt.plot(v_ar[count][fillcuts[count]], outflowmet_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(v_ar[count][empcuts[count]], outflowmet_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(v_ar[count][empcuts[count]], outflowmet_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		if (plot_inflow):
 			plt.plot(v_ar[count][fillcuts[count]], ZG_ar[count][fillcuts[count]], marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
-			plt.plot(v_ar[count][empcuts[count]], ZG_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
+			if (not skip_empty_symbols):
+				plt.plot(v_ar[count][empcuts[count]], ZG_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
 	if (Ulim_ar[count]):
-		plt.errorbar(v_ar[count], outflowmet_ar[count], yerr=(outflowmet_ar[count]*0.2, outflowmet_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+		plt.errorbar(v_ar[count], outflowmet_ar[count], yerr=(outflowmet_ar[count]*0.4, outflowmet_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 
 	count+=1
 plt.xscale('log')
 plt.yscale('log')
+plt.xlim(1e1, 3e2)
 plt.ylim(5e-5, 1e-1)
+
+#xfarag = plt.linspace(5e0, 3.5e2, 100)
+#yfarag = xfarag + 0.02
+plt.plot(xfarag, yfarag, ls=':', color = 'k', lw=2)
+
 
 #plt.xlim(1e1, 3e2)
 #plt.ylim(1e1, 1e3)
@@ -1297,8 +1399,19 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
-plt.savefig('metal_vc'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[0]*1.2, y_range[0]*6.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[0]*1.2, y_range[0]*3.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[0]*1.2, y_range[0]*1.5,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
+
+plt.savefig('metal_vc'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
+plt.clf()
 fig6 =  plt.figure(figsize=(10,9))
 count = 0
 while (count < maxplot):
@@ -1309,14 +1422,16 @@ while (count < maxplot):
 		
 	else:
 		plt.plot(ISMmet_ar[count][fillcuts[count]], metrat_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(ISMmet_ar[count][empcuts[count]], metrat_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(ISMmet_ar[count][empcuts[count]], metrat_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		if (plot_inflow):
 			plt.plot(ISMmet_ar[count][fillcuts[count]], metratG_ar[count][fillcuts[count]], marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
-			plt.plot(ISMmet_ar[count][empcuts[count]], metratG_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
+			if (not skip_empty_symbols):
+				plt.plot(ISMmet_ar[count][empcuts[count]], metratG_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
 		if (Ulim_ar[count]):
-			plt.errorbar(ISMmet_ar[count], metrat_ar[count], yerr=(metrat_ar[count]*0.2, metrat_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+			plt.errorbar(ISMmet_ar[count], metrat_ar[count], yerr=(metrat_ar[count]*0.4, metrat_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 			if (plot_inflow):
-				plt.errorbar(ISMmet_ar[count], metratG_ar[count], yerr=(metratG_ar[count]*0.2, metratG_ar[count]*0), marker='_', color = 'g', ls='none', lolims=True)
+				plt.errorbar(ISMmet_ar[count], metratG_ar[count], yerr=(metratG_ar[count]*0.4, metratG_ar[count]*0), marker='_', ms=magicmarker, color = 'g', ls='none', lolims=True)
 
 	count+=1
 plt.xscale('log')
@@ -1329,14 +1444,14 @@ plt.plot(xspace,yspace, ls=':')
 #plt.ylim(1e1, 1e3)
 xlabel_str = ''
 if (usemagic):
-	xlabel_str = r'$Z_{\rm ISM}$ (ISM metallicity)'
+	xlabel_str = r'$Z_{\rm ISM}$'
 elif (usemed):
 	xlabel_str =r'ISM metallicity'
 else:
 	xlabel_str =r'ISM metallicity'+str(int(z))
-xlabel_str = r'$Z_{\rm ISM}$ (ISM metallicity)'
+xlabel_str = r'$Z_{\rm ISM}$'
 plt.xlabel(xlabel_str, fontsize=label_fontsize)
-plt.ylabel(r'$Z_{\rm out}$) '+Inner_label,fontsize=label_fontsize)
+plt.ylabel(r'$Z_{\rm out}$ '+Inner_label,fontsize=label_fontsize)
 ax = plt.gca()
 ticklabels = ax.get_xticklabels()
 for label in ticklabels:
@@ -1351,9 +1466,19 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/24.0, y_range[0]*6.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/24.0, y_range[0]*3.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/24.0, y_range[0]*1.5,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
 plt.savefig('metalrat_ISM'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
-
+plt.clf()
 fig6b =  plt.figure(figsize=(10,9))
 count = 0
 while (count < maxplot):
@@ -1363,14 +1488,16 @@ while (count < maxplot):
 			plt.plot(ISMmet_ar[count], metratG9_ar[count], marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
 	else:
 		plt.plot(ISMmet_ar[count][fillcuts[count]], metrat9_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(ISMmet_ar[count][empcuts[count]], metrat9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(ISMmet_ar[count][empcuts[count]], metrat9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		if (plot_inflow):
 			plt.plot(ISMmet_ar[count][fillcuts[count]], metratG9_ar[count][fillcuts[count]], marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
-			plt.plot(ISMmet_ar[count][empcuts[count]], metratG9_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
+			if (not skip_empty_symbols):
+				plt.plot(ISMmet_ar[count][empcuts[count]], metratG9_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
 	if (Ulim_ar[count]):
-		plt.errorbar(ISMmet_ar[count], metrat9_ar[count], yerr=(metrat9_ar[count]*0.2, metrat9_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+		plt.errorbar(ISMmet_ar[count], metrat9_ar[count], yerr=(metrat9_ar[count]*0.4, metrat9_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 		if (plot_inflow):
-			plt.errorbar(ISMmet_ar[count], metratG9_ar[count], yerr=(metratG9_ar[count]*0.2, metratG9_ar[count]*0), marker='_', color = 'g', ls='none', lolims=True)
+			plt.errorbar(ISMmet_ar[count], metratG9_ar[count], yerr=(metratG9_ar[count]*0.4, metratG9_ar[count]*0), marker='_', ms=magicmarker, color = 'g', ls='none', lolims=True)
 	count+=1
 plt.xscale('log')
 plt.yscale('log')
@@ -1388,7 +1515,7 @@ elif (usemed):
 else:
 	xlabel_str =r'ISM metallicity'+str(int(z))
 
-xlabel_str = r'$Z_{\rm ISM}$ (ISM metallicity)'
+xlabel_str = r'$Z_{\rm ISM}$'
 plt.xlabel(xlabel_str, fontsize=label_fontsize)
 
 plt.ylabel(r'$Z_{\rm out}$ '+Outer_label,fontsize=label_fontsize)
@@ -1410,9 +1537,20 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/24.0, y_range[0]*6.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/24.0, y_range[0]*3.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/24.0, y_range[0]*1.5,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
+
 plt.savefig('metalrat9_ISM'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
-
+plt.clf()
 fig7 =  plt.figure(figsize=(10,9))
 count = 0
 while (count < maxplot):
@@ -1423,18 +1561,20 @@ while (count < maxplot):
 
 	else:
 		plt.plot(v_ar[count][fillcuts[count]], metrat_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(v_ar[count][empcuts[count]], metrat_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(v_ar[count][empcuts[count]], metrat_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		if (plot_inflow):
 			plt.plot(v_ar[count][fillcuts[count]], metratG_ar[count][fillcuts[count]], marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
-			plt.plot(v_ar[count][empcuts[count]], metratG_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
+			if (not skip_empty_symbols):
+				plt.plot(v_ar[count][empcuts[count]], metratG_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
 		if (Ulim_ar[count]):
-			plt.errorbar(v_ar[count], metrat_ar[count], yerr=(metrat_ar[count]*0.2, metrat_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+			plt.errorbar(v_ar[count], metrat_ar[count], yerr=(metrat_ar[count]*0.4, metrat_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 			if (plot_inflow):
-				plt.errorbar(v_ar[count], metratG_ar[count], yerr=(metratG_ar[count]*0.2, metratG_ar[count]*0), marker='_', color = 'g', ls='none', lolims=True)
+				plt.errorbar(v_ar[count], metratG_ar[count], yerr=(metratG_ar[count]*0.2, metratG_ar[count]*0), marker='_', ms=magicmarker, color = 'g', ls='none', lolims=True)
 	count+=1
 plt.xscale('log')
 plt.yscale('log')
-#plt.xlim(1e1, 3e2)
+plt.xlim(1e1, 3e2)
 #plt.ylim(1e1, 1e3)
 xlabel_str = ''
 if (usemagic):
@@ -1460,8 +1600,19 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/3.0, y_range[0]*6.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/3.0, y_range[0]*3.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/3.0, y_range[0]*1.5,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
 plt.savefig('metalrat_vc'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
+plt.clf()
 fig7b =  plt.figure(figsize=(10,9))
 count = 0
 while (count < maxplot):
@@ -1469,18 +1620,20 @@ while (count < maxplot):
 		plt.plot(vc_ar[count], metrat9_ar[count], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
 	else:
 		plt.plot(v_ar[count][fillcuts[count]], metrat9_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(v_ar[count][empcuts[count]], metrat9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(v_ar[count][empcuts[count]], metrat9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		if (plot_inflow):
 			plt.plot(v_ar[count][fillcuts[count]], metratG9_ar[count][fillcuts[count]], marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
-			plt.plot(v_ar[count][empcuts[count]], metratG9_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
+			if (not skip_empty_symbols):
+				plt.plot(v_ar[count][empcuts[count]], metratG9_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
 	if (Ulim_ar[count]):
-		plt.errorbar(v_ar[count], metrat9_ar[count], yerr=(metrat9_ar[count]*0.2, metrat9_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+		plt.errorbar(v_ar[count], metrat9_ar[count], yerr=(metrat9_ar[count]*0.4, metrat9_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 		if (plot_inflow):
-			plt.errorbar(v_ar[count], metratG9_ar[count], yerr=(metratG9_ar[count]*0.2, metratG9_ar[count]*0), marker='_', color = 'g', ls='none', lolims=True)
+			plt.errorbar(v_ar[count], metratG9_ar[count], yerr=(metratG9_ar[count]*0.2, metratG9_ar[count]*0), marker='_', ms=magicmarker, color = 'g', ls='none', lolims=True)
 	count+=1
 plt.xscale('log')
 plt.yscale('log')
-#plt.xlim(1e1, 3e2)
+plt.xlim(1e1, 3e2)
 #plt.ylim(1e1, 1e3)
 xlabel_str = ''
 if (usemagic):
@@ -1508,10 +1661,21 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/3.0, y_range[0]*6.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/3.0, y_range[0]*3.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/3.0, y_range[0]*1.5,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
+
 plt.savefig('metalrat9_vc'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
 
-
+plt.clf()
 fig8 =  plt.figure(figsize=(10,9))
 count = 0
 while (count < maxplot):
@@ -1519,9 +1683,11 @@ while (count < maxplot):
 		plt.plot(ISMmet_ar[count], (metrat9_ar[count]/metratG9_ar[count]), marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
 	else:
 		plt.plot(ISMmet_ar[count][fillcuts[count]], metrat9_ar[count][fillcuts[count]]/metratG9_ar[count][fillcuts[count]] , marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(ISMmet_ar[count][empcuts[count]], metrat9_ar[count][empcuts[count]]/metratG9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(ISMmet_ar[count][empcuts[count]], metrat9_ar[count][empcuts[count]]/metratG9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker+5)
 	if (Ulim_ar[count]):
-		plt.errorbar(ISMmet_ar[count], metrat9_ar[count], yerr=(metrat9_ar[count]*0.2, metrat9_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+		plt.errorbar(ISMmet_ar[count], metrat9_ar[count]/metratG9_ar[count], yerr=((metrat9_ar[count]/metratG9_ar[count])*0.4, (metrat9_ar[count]/metratG9_ar[count])*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
+#		print 'sasha duck duck duck ',ISMmet_ar[count],metrat9_ar[count]
 	count+=1
 plt.xscale('log')
 plt.yscale('log')
@@ -1530,7 +1696,7 @@ xspace = 10**xspace
 yspace = xspace
 #plt.plot(xspace,yspace, ls=':')
 #plt.xlim(1e1, 3e2)
-#plt.ylim(1e1, 1e3)
+plt.ylim(1e-1, 1e2)
 xlabel_str = ''
 if (usemagic):
 	xlabel_str = r'ISM metallicity'
@@ -1538,6 +1704,8 @@ elif (usemed):
 	xlabel_str =r'ISM metallicity'
 else:
 	xlabel_str =r'ISM metallicity'+str(int(z))
+xlabel_str = r'$Z_{\rm ISM}$'
+
 plt.xlabel(xlabel_str, fontsize=label_fontsize)
 
 plt.ylabel(r'$Z_{\rm out} / Z_{\rm in}$ '+Outer_label,fontsize=label_fontsize)
@@ -1555,9 +1723,19 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/24.0, y_range[1]/3.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/24.0, y_range[1]/6.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/24.0, y_range[1]/12.0,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
 plt.savefig('outflowZ_ISM9'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
-
+plt.clf()
 fig8b =  plt.figure(figsize=(10,9))
 count = 0
 while (count < maxplot):
@@ -1565,7 +1743,11 @@ while (count < maxplot):
 		plt.plot(ISMmet_ar[count], (metrat_ar[count]/metratG_ar[count]), marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
 	else:
 		plt.plot(ISMmet_ar[count][fillcuts[count]], metrat_ar[count][fillcuts[count]]/metratG_ar[count][fillcuts[count]] , marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(ISMmet_ar[count][empcuts[count]], metrat_ar[count][empcuts[count]]/metratG_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(ISMmet_ar[count][empcuts[count]], metrat_ar[count][empcuts[count]]/metratG_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+	if (Ulim_ar[count]):
+		plt.errorbar(ISMmet_ar[count], metrat_ar[count]/metratG_ar[count], yerr=((metrat_ar[count]/metratG_ar[count])*0.4, (metrat_ar[count]/metratG_ar[count])*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
+
 	count+=1
 plt.xscale('log')
 plt.yscale('log')
@@ -1575,6 +1757,7 @@ yspace = xspace
 #plt.plot(xspace,yspace, ls=':')
 #plt.xlim(1e1, 3e2)
 #plt.ylim(1e1, 1e3)
+plt.ylim(1e-1, 1e2)
 xlabel_str = ''
 if (usemagic):
 	xlabel_str = r'ISM metallicity'
@@ -1582,6 +1765,8 @@ elif (usemed):
 	xlabel_str =r'ISM metallicity'
 else:
 	xlabel_str =r'ISM metallicity'+str(int(z))
+xlabel_str = r'$Z_{\rm ISM}$'
+
 plt.xlabel(xlabel_str, fontsize=label_fontsize)
 
 plt.ylabel(r'$Z_{\rm out} / Z_{\rm in}$ '+Inner_label,fontsize=label_fontsize)
@@ -1599,9 +1784,20 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/24.0, y_range[1]/3.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/24.0, y_range[1]/6.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/24.0, y_range[1]/12.0,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
+
 plt.savefig('outflowZ_ISM'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
-
+plt.clf()
 fig9 =  plt.figure(figsize=(10,9))
 count = 0
 while (count < maxplot):
@@ -1609,10 +1805,16 @@ while (count < maxplot):
 		plt.plot(Mstar_ar[count], (metrat_ar[count]/ISMmet_ar[count]), marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
 	else:
 		plt.plot(Mstar_ar[count][fillcuts[count]], metrat_ar[count][fillcuts[count]]/ISMmet_ar[count][fillcuts[count]] , marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(Mstar_ar[count][empcuts[count]], metrat_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(Mstar_ar[count][empcuts[count]], metrat_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		if (plot_inflow):
 			plt.plot(Mstar_ar[count][fillcuts[count]], metratG_ar[count][fillcuts[count]]/ISMmet_ar[count][fillcuts[count]] , marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
-			plt.plot(Mstar_ar[count][empcuts[count]], metratG_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
+			if (not skip_empty_symbols):
+				plt.plot(Mstar_ar[count][empcuts[count]], metratG_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
+
+	if (Ulim_ar[count]):
+		plt.errorbar(Mstar_ar[count], metrat_ar[count]/ISMmet_ar[count], yerr=((metrat_ar[count]/ISMmet_ar[count])*0.4, ML9_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
+
 	count+=1
 plt.xscale('log')
 plt.yscale('linear')
@@ -1622,7 +1824,7 @@ yspace = xspace
 #plt.plot(xspace,yspace, ls=':')
 #plt.xlim(1e1, 3e2)
 #plt.ylim(1e1, 1e3)
-plt.ylim(0, 3)
+plt.ylim(0, 2)
 xlabel_str = ''
 if (usemagic):
 	xlabel_str = r'ISM metallicity'
@@ -1631,6 +1833,8 @@ elif (usemed):
 	xlabel_str =r'Stellar Mass $(M_{\odot})$ at ${\rm z}_{med}$'
 else:
 	xlabel_str =r'ISM metallicity'+str(int(z))
+#xlabel_str = r'$Z_{\rm ISM}$'
+
 plt.xlabel(xlabel_str, fontsize=label_fontsize)
 
 plt.ylabel(r'$Z_{\rm out}$ ' +Inner_label +r' / $Z_{\rm ISM}$',fontsize=label_fontsize)
@@ -1648,8 +1852,19 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/100.0, (y_range[1]-y_range[0])*0.90+y_range[0],   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/100.0,  (y_range[1]-y_range[0])*0.83+y_range[0],   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/100.0,  (y_range[1]-y_range[0])*0.76+y_range[0],   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
 plt.savefig('MstarZ_ISM'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
+plt.clf()
 fig9b =  plt.figure(figsize=(10,9))
 count = 0
 while (count < maxplot):
@@ -1657,9 +1872,13 @@ while (count < maxplot):
 		plt.plot(Mstar_ar[count], (metrat_ar[count]/ISMmet_ar[count]), marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
 	else:
 		plt.plot(Mstar_ar[count][fillcuts[count]], metrat9_ar[count][fillcuts[count]]/ISMmet_ar[count][fillcuts[count]] , marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(Mstar_ar[count][empcuts[count]], metrat9_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(Mstar_ar[count][empcuts[count]], metrat9_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		#plt.plot(Mstar_ar[count][fillcuts[count]], metratG9_ar[count][fillcuts[count]]/ISMmet_ar[count][fillcuts[count]] , marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
 		#plt.plot(Mstar_ar[count][empcuts[count]], metratG9_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
+	if (Ulim_ar[count]):
+		plt.errorbar(Mstar_ar[count], metrat9_ar[count]/ISMmet_ar[count], yerr=((metrat9_ar[count]/ISMmet_ar[count])*0.4, ML9_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
+
 	count+=1
 plt.xscale('log')
 plt.yscale('linear')
@@ -1669,7 +1888,7 @@ yspace = xspace
 #plt.plot(xspace,yspace, ls=':')
 #plt.xlim(1e1, 3e2)
 #plt.ylim(1e1, 1e3)
-plt.ylim(0,3)
+plt.ylim(0,2)
 xlabel_str = ''
 if (usemagic):
 	xlabel_str = r'ISM metallicity'
@@ -1678,6 +1897,8 @@ elif (usemed):
 	xlabel_str =r'Stellar Mass $(M_{\odot})$ at ${\rm z}_{med}$'
 else:
 	xlabel_str =r'ISM metallicity'+str(int(z))
+#xlabel_str = r'$Z_{\rm ISM}$'
+
 plt.xlabel(xlabel_str, fontsize=label_fontsize)
 
 plt.ylabel(r'$Z_{\rm out}$ ' +Outer_label+r' / $Z_{\rm ISM}$',fontsize=label_fontsize)
@@ -1695,6 +1916,17 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/100.0, (y_range[1]-y_range[0])*0.90+y_range[0],   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/100.0,  (y_range[1]-y_range[0])*0.83+y_range[0],   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/100.0,  (y_range[1]-y_range[0])*0.76+y_range[0],   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
+
 plt.savefig('MstarZ9_ISM'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
 plt.clf()
@@ -1708,7 +1940,11 @@ while (count < maxplot):
 		#plt.plot(Mstar_ar[count][fillcuts[count]], metrat9_ar[count][fillcuts[count]]/ISMmet_ar[count][fillcuts[count]] , marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
 		#plt.plot(Mstar_ar[count][empcuts[count]], metrat9_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		plt.plot(Mstar_ar[count][fillcuts[count]], metratG9_ar[count][fillcuts[count]]/ISMmet_ar[count][fillcuts[count]] , marker=marker_ar[count],  color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(Mstar_ar[count][empcuts[count]], metratG9_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count],  color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(Mstar_ar[count][empcuts[count]], metratG9_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count],  color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+	if (Ulim_ar[count]):
+		plt.errorbar(Mstar_ar[count], metratG9_ar[count]/ISMmet_ar[count], yerr=((metratG9_ar[count]/ISMmet_ar[count])*0.4, ML9_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
+
 	count+=1
 plt.xscale('log')
 plt.yscale('linear')
@@ -1718,7 +1954,7 @@ yspace = xspace
 #plt.plot(xspace,yspace, ls=':')
 #plt.xlim(1e1, 3e2)
 #plt.ylim(1e1, 1e3)
-plt.ylim(0,1.5)
+plt.ylim(0,1.0)
 xlabel_str = ''
 if (usemagic):
 	xlabel_str = r'ISM metallicity'
@@ -1727,6 +1963,8 @@ elif (usemed):
 	xlabel_str =r'Stellar Mass $(M_{\odot})$ at ${\rm z}_{med}$'
 else:
 	xlabel_str =r'ISM metallicity'+str(int(z))
+#xlabel_str = r'$Z_{\rm ISM}$'
+
 plt.xlabel(xlabel_str, fontsize=label_fontsize)
 
 plt.ylabel(r'$Z_{\rm in}$ ' +Outer_label+r' / $Z_{\rm ISM}$',fontsize=label_fontsize)
@@ -1744,6 +1982,17 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/100.0, (y_range[1]-y_range[0])*0.90+y_range[0],   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/100.0,  (y_range[1]-y_range[0])*0.83+y_range[0],   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/100.0,  (y_range[1]-y_range[0])*0.76+y_range[0],   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
+
 plt.savefig('inflowMstarZ9_ISM'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
 plt.clf()
@@ -1758,7 +2007,11 @@ while (count < maxplot):
 		#plt.plot(Mstar_ar[count][fillcuts[count]], metrat9_ar[count][fillcuts[count]]/ISMmet_ar[count][fillcuts[count]] , marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
 		#plt.plot(Mstar_ar[count][empcuts[count]], metrat9_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		plt.plot(Mstar_ar[count][fillcuts[count]], metratG_ar[count][fillcuts[count]]/ISMmet_ar[count][fillcuts[count]] , marker=marker_ar[count],  color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(Mstar_ar[count][empcuts[count]], metratG_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count],  color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(Mstar_ar[count][empcuts[count]], metratG_ar[count][empcuts[count]]/ISMmet_ar[count][empcuts[count]], marker=marker_ar[count],  color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+	if (Ulim_ar[count]):
+		plt.errorbar(Mstar_ar[count], metratG_ar[count]/ISMmet_ar[count], yerr=((metratG_ar[count]/ISMmet_ar[count])*0.4, ML9_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
+
 	count+=1
 plt.xscale('log')
 plt.yscale('linear')
@@ -1769,7 +2022,7 @@ yspace = xspace
 #plt.plot(xspace,yspace, ls=':')
 #plt.xlim(1e1, 3e2)
 #plt.ylim(1e1, 1e3)
-plt.ylim(0,1.5)
+plt.ylim(0,1.0)
 xlabel_str = ''
 if (usemagic):
 	xlabel_str = r'ISM metallicity'
@@ -1778,6 +2031,8 @@ elif (usemed):
 	xlabel_str =r'Stellar Mass $(M_{\odot})$ at ${\rm z}_{med}$'
 else:
 	xlabel_str =r'ISM metallicity'+str(int(z))
+#xlabel_str = r'$Z_{\rm ISM}$'
+
 plt.xlabel(xlabel_str, fontsize=label_fontsize)
 
 plt.ylabel(r'$Z_{\rm in}$ '+Inner_label+r' / $Z_{\rm ISM}$',fontsize=label_fontsize)
@@ -1795,6 +2050,17 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/100.0, (y_range[1]-y_range[0])*0.90+y_range[0],   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/100.0,  (y_range[1]-y_range[0])*0.83+y_range[0],   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/100.0,  (y_range[1]-y_range[0])*0.76+y_range[0],   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
+
 plt.savefig('inflowMstarZ_ISM'+str(mi)+'int'+ str(today) +'z'+str(int(z))+'.pdf')
 
 plt.clf()
@@ -1814,11 +2080,12 @@ while (count < maxplot):
 
 	else:
 		plt.plot(v_ar[count][fillcuts[count]], ML9_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(v_ar[count][empcuts[count]], ML9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(v_ar[count][empcuts[count]], ML9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 		#plt.plot(v_ar[count][fillcuts[count]], MG_ar[count][fillcuts[count]], marker=marker_ar[count], color='g', ls='none', ms=magicmarker)
 		#plt.plot(v_ar[count][empcuts[count]], MG_ar[count][empcuts[count]], marker=marker_ar[count], color='g', ls='none', fillstyle='none', ms=magicmarker)
 	if (Ulim_ar[count]):
-		plt.errorbar(v_ar[count], ML9_ar[count], yerr=(ML9_ar[count]*0.4, ML9_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+		plt.errorbar(v_ar[count], ML9_ar[count], yerr=(ML9_ar[count]*0.4, ML9_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 
 	count+=1
 
@@ -1860,6 +2127,14 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/3.0, y_range[1]/3.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/3.0, y_range[1]/6.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/3.0, y_range[1]/12.0,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
 
 xlabel_str = ''
 if (usemagic):
@@ -1896,9 +2171,10 @@ while (count < maxplot):
 		plt.plot(Mstar_ar[count], ML9_ar[count], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
 	else:
 		plt.plot(Mstar_ar[count][fillcuts[count]], ML9_ar[count][fillcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', ms=magicmarker)
-		plt.plot(Mstar_ar[count][empcuts[count]], ML9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
+		if (not skip_empty_symbols):
+			plt.plot(Mstar_ar[count][empcuts[count]], ML9_ar[count][empcuts[count]], marker=marker_ar[count], color=color_ar[count], ls='none', fillstyle='none', ms=magicmarker)
 	if (Ulim_ar[count]):
-		plt.errorbar(Mstar_ar[count], ML9_ar[count], yerr=(ML9_ar[count]*0.4, ML9_ar[count]*0), marker='_', color = 'r', ls='none', lolims=True)
+		plt.errorbar(Mstar_ar[count], ML9_ar[count], yerr=(ML9_ar[count]*0.4, ML9_ar[count]*0), marker='_', ms=magicmarker, color = 'r', ls='none', lolims=True)
 
 
 	count+=1
@@ -1941,5 +2217,138 @@ ax.xaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.yaxis.set_tick_params(width=tick_width, length=tick_height)
 ax.xaxis.set_tick_params(width=2, length=12, which='minor')
 ax.yaxis.set_tick_params(width=2, length=12, which='minor')
+x_range = ax.get_xlim()
+y_range = ax.get_ylim()
+
+titlefont = 20
+plt.text(x_range[1]/192.0, y_range[1]/3.0,   "4.0 > z > 2.0", fontsize=titlefont, fontweight='bold', color ='k')
+plt.text(x_range[1]/192.0, y_range[1]/6.0,   "2.0 > z > 0.5", fontsize=titlefont, fontweight='bold', color ='b')
+plt.text(x_range[1]/192.0, y_range[1]/12.0,   "0.5 > z", fontsize=titlefont, fontweight='bold', color ='r')
+
+
 plt.savefig('AllMstar9'+str(mi)+'_log_int_'+ str(today) +'z'+str(int(z))+'.pdf')
 ff.close()
+
+
+metrat_ar_ext = np.log10(np.hstack(metrat_ar))
+fillcut_ar_ext = np.hstack(fillcuts)
+ISMmet_ar_ext = np.log10(np.hstack(ISMmet_ar))
+metrat9_ar_ext = np.log10(np.hstack(metrat9_ar))
+
+print 'asdf asdf ',metrat_ar
+print 'dfsa dfsa', metrat_ar_ext
+print 'dofa dofa' ,ISMmet_ar_ext
+
+garthcut = np.isfinite(ISMmet_ar_ext)
+print 'dofa dofa' ,ISMmet_ar_ext[garthcut]
+
+p3 = [0, 1, -1]
+
+
+ISM_Outfit = optimize.leastsq(residualsZ,p3[:], args=(metrat_ar_ext[stoopcut * fillcut_ar_ext * garthcut], ISMmet_ar_ext[stoopcut * fillcut_ar_ext * garthcut], z_rel_ext_ar[stoopcut*fillcut_ar_ext * garthcut] ))
+
+
+ISMmet_int = ISM_Outfit[0][0]
+ISMmet_slope = ISM_Outfit[0][1]
+ISMmet_z_slope = ISM_Outfit[0][2]
+
+print 'heres ISM metrat fit ',ISMmet_int,ISMmet_slope,ISMmet_z_slope
+
+print 'noz'
+ISM_Outfit = optimize.leastsq(residuals,p2[:], args=(metrat_ar_ext[stoopcut * fillcut_ar_ext * garthcut], ISMmet_ar_ext[stoopcut * fillcut_ar_ext * garthcut] ))
+
+
+ISMmet_int = ISM_Outfit[0][0]
+ISMmet_slope = ISM_Outfit[0][1]
+
+print 'heres ISM metrat fit ',ISMmet_int,ISMmet_slope
+
+print 'hiz only'
+ISM_Outfit = optimize.leastsq(residuals,p2[:], args=(metrat_ar_ext[stoopcut * fillcut_ar_ext * garthcut * hiz_cut], ISMmet_ar_ext[stoopcut * fillcut_ar_ext * garthcut * hiz_cut] ), full_output=True)
+
+ISMmet_int = ISM_Outfit[0][0]
+ISMmet_slope = ISM_Outfit[0][1]
+print 'heres ISM metrat fit ',ISMmet_int,ISMmet_slope
+
+
+print 'proper z fit at 0.25 Rvir' 
+ISM_Outfit = optimize.leastsq(residualsZZ,p3[:], args=(metrat_ar_ext[stoopcut * fillcut_ar_ext * garthcut], ISMmet_ar_ext[stoopcut * fillcut_ar_ext * garthcut], z_rel_ext_ar[stoopcut*fillcut_ar_ext * garthcut] ), full_output=True)
+
+
+ISMmet_int = ISM_Outfit[0][0]
+ISMmet_slope = ISM_Outfit[0][1]
+ISMmet_z_slope = ISM_Outfit[0][2]
+
+ISM_Outfitcov = ISM_Outfit[1]
+#print 'ISM_Outfit cov ',ISM_Outfitcov
+perrS = np.sqrt(np.diag(ISM_Outfitcov))
+#print 'error is here ', perrS #TSIS IS WRONG NEED TO MULTIPLY BY VARIANCE!
+
+
+print 'heres ISM metrat fit ',ISMmet_int,ISMmet_slope,ISMmet_z_slope
+
+print 'proper z fit at 1.0 Rvir' 
+ISM_Outfit = optimize.leastsq(residualsZZ,p3[:], args=(metrat9_ar_ext[stoopcut * fillcut_ar_ext * garthcut], ISMmet_ar_ext[stoopcut * fillcut_ar_ext * garthcut], z_rel_ext_ar[stoopcut*fillcut_ar_ext * garthcut] ), full_output=True)
+
+
+ISMmet_int = ISM_Outfit[0][0]
+ISMmet_slope = ISM_Outfit[0][1]
+ISMmet_z_slope = ISM_Outfit[0][2]
+
+ISM_Outfitcov = ISM_Outfit[1]
+#print 'ISM_Outfit cov ',ISM_Outfitcov
+perrS = np.sqrt(np.diag(ISM_Outfitcov))
+#print 'error is here ', perrS TSIS IS WRONG NEED TO MULTIPLY BY VARIANCE!
+
+
+print 'heres ISM metrat fit at outer radius',ISMmet_int,ISMmet_slope,ISMmet_z_slope
+
+
+#def residualsZZ(b , y, x, zz):
+#    err = y - (b[1]*x + b[0] + b[2]*np.log10(1+zz))
+#    return err
+
+
+def fitfuncStar((x, myz),a1,a2, a3):
+	#fixpoint already assumes z=3
+	y = a1*x + a2 + a3*np.log10(1.0+myz) 
+	
+	return y
+
+popt,pcov = optimize.curve_fit(fitfuncStar, ( ISMmet_ar_ext[stoopcut * fillcut_ar_ext * garthcut], z_rel_ext_ar[stoopcut*fillcut_ar_ext * garthcut]),  metrat_ar_ext[stoopcut * fillcut_ar_ext * garthcut], p0=(-1.0,1.0, 0.0)) 
+
+print 'here we go again popt for 0.25 Rvir', popt
+[a1, a2, a3]  = popt
+print  'parameters ', a1, a2, a3
+perrS = np.sqrt(np.diag(pcov))
+print 'errors ',perrS
+
+
+
+
+popt2,pcov2 = optimize.curve_fit(fitfuncStar, ( ISMmet_ar_ext[stoopcut * fillcut_ar_ext * garthcut], z_rel_ext_ar[stoopcut*fillcut_ar_ext * garthcut]),  metrat9_ar_ext[stoopcut * fillcut_ar_ext * garthcut], p0=(-1.0,1.0, 0.0)) 
+
+print 'here we go again popt for 1.0 Rvir', popt2
+[a1, a2, a3]  = popt2
+print 'parameters ',a1, a2, a3
+perrS2 = np.sqrt(np.diag(pcov2))
+print 'errors ',perrS2
+
+
+popt2,pcov2 = optimize.curve_fit(fitfuncStar, ( v_ext_ar[stoopcut * fillcut_ar_ext * garthcut], z_rel_ext_ar[stoopcut*fillcut_ar_ext * garthcut]),  metrat9_ar_ext[stoopcut * fillcut_ar_ext * garthcut], p0=(-1.0,1.0, 0.0)) 
+
+print 'here we go again v_c popt for 1.0 Rvir', popt2
+[a1, a2, a3]  = popt2
+print 'parameters ',a1, a2, a3
+perrS2 = np.sqrt(np.diag(pcov2))
+print 'errors ',perrS2
+
+
+popt2,pcov2 = optimize.curve_fit(fitfuncStar, ( v_ext_ar[stoopcut * fillcut_ar_ext * garthcut], z_rel_ext_ar[stoopcut*fillcut_ar_ext * garthcut]),  metrat_ar_ext[stoopcut * fillcut_ar_ext * garthcut], p0=(-1.0,1.0, 0.0)) 
+
+print 'here we go again v_c popt for 0.25 Rvir', popt2
+[a1, a2, a3]  = popt2
+print 'parameters ',a1, a2, a3
+perrS2 = np.sqrt(np.diag(pcov2))
+print 'errors ',perrS2
+
