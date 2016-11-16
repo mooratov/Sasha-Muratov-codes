@@ -1,5 +1,3 @@
-#functions for graphics
-
 import matplotlib
 matplotlib.use('Agg')
 from gas_temperature import *
@@ -71,10 +69,15 @@ def pluscuts_2d_desnity_hist(P, Rbox, x, y, z, foutname, Cuts=[], focusshell=-1,
 
 	for f in plt[0]:
 		f += 1e-1 #set the background value for smooth image.
-
-	theplt.xlabel('x (comoving kpc)', fontsize=25) 
+	firstaxis = 'x'
+	secondaxis = 'y'
+	if (xtoz):
+		firstaxis = 'z'
+	if (ytoz):
+		secondaxis = 'z'
+	theplt.xlabel(firstaxis+' (comoving kpc)', fontsize=25) 
 	if (doylabelL):
-		theplt.ylabel('y (comoving kpc)', fontsize=25) 
+		theplt.ylabel(secondaxis+' (comoving kpc)', fontsize=25) 
 	cbar = theplt.colorbar()
 	ax = theplt.gca()
 	x_range = ax.get_xlim()
@@ -98,19 +101,29 @@ def pluscuts_2d_desnity_hist(P, Rbox, x, y, z, foutname, Cuts=[], focusshell=-1,
 	cbar.ax.yaxis.set_tick_params(width=2.5, length=8)
 
 	if (len(extrapoints)>1):
-		marker_ar = ['*', 'p', 's', '^', 'v']
-		color_ar = ['w','Chartreuse','LightSkyBlue','g','g']
+		marker_ar = ['*', 'p', 's', '^', 'v']*10
+		color_ar = ['chartreuse','chartreuse','chartreuse','chartreuse','chartreuse']*10
 		count = 0
 		for pt in extrapoints:
-			theplt.plot([(pt[0] - x)/little_h], [(pt[1]- y)/little_h], marker=marker_ar[count], color=color_ar[count], ms=5, alpha=0.1, fillstyle='none')
-			print 'plotted ',(pt[0] - x)/little_h, (pt[1]- y)/little_h
+			axis1 = 0 
+			axis2 = 1
+			tempx = x
+			tempy = y 
+			if (xtoz):
+				axis1 = 2 
+				tempx = z
+			if (ytoz):
+				axis2 = 2 
+				tempy = z
+			theplt.plot([(pt[axis1] - tempx)/little_h], [(pt[axis2]- tempy)/little_h], marker=marker_ar[count], color=color_ar[count], ms=5, alpha=0.1, fillstyle='none')
+			print 'plotted ',(pt[axis1] - tempx)/little_h, (pt[axis2]- tempy)/little_h
 			print 'original ',pt
 			ang = 0
 			if (len(extrars) > 0):
 				if (extrars[count] > 0):
 					ra = extrars[count] / little_h
 					rb = ra
-					theX,theY=ellipse(ra,rb,ang,(pt[0] - x)/little_h,(pt[1]- y)/little_h)	
+					theX,theY=ellipse(ra,rb,ang,(pt[axis1] - tempx)/little_h,(pt[axis2]- tempy)/little_h)	
 					theplt.plot(theX,theY,ls=':', color=color_ar[count] ,ms=1,linewidth=1)
 
 			count += 1
@@ -343,8 +356,8 @@ def dumb_stars(StarsP, NewStarsP, Rbox, x, y, z, foutname, a, xtoz = False, ytoz
 	theplt.xlim(firstmin*a, firstmax*a)
 
 	if (len(extrapoints)>1):
-		marker_ar = ['*', 'p', 's', '^', 'v']
-		color_ar = ['b','Chartreuse','g','g','g']
+		marker_ar = ['*', 'p', 's', '^', 'v']*5
+		color_ar = ['b','y','g','w','r']*5
 		count = 0
 		for pt in extrapoints:
 			theplt.plot([a*(pt[0] - x)/little_h], [a*(pt[1]- y)/little_h], marker=marker_ar[count], color=color_ar[count], ms=10, alpha=1)
